@@ -73,9 +73,14 @@ dialog{border:1px solid var(--bd);border-radius:18px;background:var(--card);colo
 dialog::backdrop{background:rgba(0,0,0,.5)}
 dialog h2{margin:0 0 2px;font-size:1.1rem;word-break:break-word}
 dialog .cl{color:var(--mut);font-size:.85rem}
-.st{display:flex;align-items:center;justify-content:center;gap:12px;margin:18px 0 6px}
-.st button{width:56px;height:56px;padding:0;font-size:1.6rem;border-radius:16px}
-.st input{width:100px;height:56px;text-align:center;font-size:1.6rem;font-weight:700}
+.qv{text-align:center;margin:14px 0 4px}
+.qbig{font-size:2.6rem;font-weight:800;line-height:1.1}
+.st{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 6px;padding:10px;border:1px dashed var(--bd);border-radius:14px}
+.st button{width:40px;height:40px;padding:0;font-size:1.2rem;border-radius:10px;color:var(--mut)}
+.st input{width:84px;height:40px;text-align:center;font-size:1.2rem;font-weight:700;padding:6px}
+.fi{font-size:1.9rem;line-height:1}
+.tile{position:relative}
+.tile.bad .fi{filter:hue-rotate(150deg) saturate(2)}
 .sl{text-align:center;font-size:.85rem;color:var(--mut);margin-bottom:6px}
 details{margin-top:12px}
 summary{color:var(--mut);cursor:pointer;font-size:.9rem;padding:6px 0}
@@ -104,8 +109,8 @@ dialog label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 4px;fo
 
 <dialog id="dlg">
   <h2 id="dn"></h2><div class="cl" id="dc"></div>
-  <div class="st"><button id="m">−</button><input id="qt" type="number" min="0" inputmode="numeric"><button id="pl">+</button></div>
-  <div class="sl">Quantité en stock</div>
+  <div class="qv" id="qv"><div class="qbig" id="qbig">0</div><div class="sl">en stock</div><button class="lnk" id="edq">Modifier la quantité</button></div>
+  <div class="st hide" id="stp"><button id="m">−</button><input id="qt" type="number" min="0" inputmode="numeric"><button id="pl">+</button></div>
   <details id="more"><summary>Modifier le nom, la catégorie, le seuil</summary>
     <label>Nom</label><input id="n">
     <label>Catégorie</label><select id="c"></select>
@@ -186,17 +191,17 @@ function home(){
   else h+='<div class="good">✅ Aucun article en rupture</div>';
   if(lows.length)h+='<div class="warn"><h2>🟠 Stock bas ('+lows.length+')</h2>'+lows.map(rrow).join('')+'</div>';
   h+='<input class="sb" id="s" type="search" placeholder="Rechercher un article">';
-  h+='<h2 class="sec">Catégories</h2><div class="grid">';
+  h+='<h2 class="sec">Dossiers</h2><div class="grid">';
   cats.forEach(function(c){h+=tile(c.id,c.name)});
   var orphan=items.filter(function(i){return !i.category_id});
   if(orphan.length)h+=tile('none','Sans catégorie');
-  h+='<div class="tile add" data-a="addc">+ Nouvelle<br>catégorie</div></div>';
+  h+='<div class="tile add" data-a="addc">+ Nouveau<br>dossier</div></div>';
   return h;
 }
 function tile(id,name){
   var its=items.filter(function(i){return (id==='none'?!i.category_id:i.category_id===id)});
   var o=its.filter(function(i){return st(i)==='out'}).length,l=its.filter(function(i){return st(i)==='low'}).length;
-  return '<div class="tile'+(o?' bad':'')+'" data-cat="'+id+'"><b>'+esc(name)+'</b><div><small>'+plural(its.length,'article')+'</small>'
+  return '<div class="tile'+(o?' bad':'')+'" data-cat="'+id+'"><span class="fi">📁</span><b>'+esc(name)+'</b><div><small>'+plural(its.length,'article')+'</small>'
     +(o||l?'<div class="bd" style="margin-top:6px">'+(o?'<span class="b o">'+o+' rupture'+(o>1?'s':'')+'</span>':'')+(l?'<span class="b w">'+l+' bas</span>':'')+'</div>':'')+'</div></div>';
 }
 function itemRow(i){
@@ -207,8 +212,8 @@ function catView(id){
   var real=id!=='none',c=real?cat(id):null;
   if(real&&!c){location.hash='';return home()}
   var its=items.filter(function(i){return id==='none'?!i.category_id:i.category_id===id}).sort(function(a,b){return rank(a)-rank(b)||a.name.localeCompare(b.name)});
-  var h='<div class="back"><button class="lnk" data-a="back">‹ Catégories</button></div>';
-  h+='<div class="ctop"><h1>'+esc(real?c.name:'Sans catégorie')+'</h1><button class="p" data-a="addi" data-id="'+(real?id:'')+'">+ Article</button></div>';
+  var h='<div class="back"><button class="lnk" data-a="back">‹ Dossiers</button></div>';
+  h+='<div class="ctop"><h1>📂 '+esc(real?c.name:'Sans catégorie')+'</h1><button class="p" data-a="addi" data-id="'+(real?id:'')+'">+ Article</button></div>';
   h+=its.length?its.map(itemRow).join(''):'<div class="empty">Aucun article dans cette catégorie.</div>';
   if(real)h+='<div style="margin-top:18px;text-align:center"><button class="lnk" data-a="rc" data-id="'+id+'">Renommer la catégorie</button><button class="lnk" style="color:var(--ko)" data-a="dc" data-id="'+id+'">Supprimer la catégorie</button></div>';
   return h;
@@ -243,13 +248,19 @@ function openDlg(id,presel){
   $('n').value=it?it.name:'';
   $('c').value=it?(it.category_id||''):(presel||'');
   $('qt').value=it?it.qty:0;$('th').value=it?it.threshold:5;
+  $('qbig').textContent=it?it.qty:0;
+  $('qv').classList.toggle('hide',!it);
+  $('stp').classList.toggle('hide',!!it);
   $('del').style.display=it?'':'none';
   $('more').open=!it;
+  $('edq').classList.remove('hide');
   $('dlg').showModal();
 }
 function qv(){return Math.max(0,Math.floor(+$('qt').value||0))}
-$('m').onclick=function(){$('qt').value=Math.max(0,qv()-1)};
-$('pl').onclick=function(){$('qt').value=qv()+1};
+$('edq').onclick=function(){$('stp').classList.remove('hide');$('edq').classList.add('hide')};
+$('m').onclick=function(){$('qt').value=Math.max(0,qv()-1);$('qbig').textContent=qv()};
+$('pl').onclick=function(){$('qt').value=qv()+1;$('qbig').textContent=qv()};
+$('qt').oninput=function(){$('qbig').textContent=qv()};
 $('cx').onclick=function(){$('dlg').close()};
 $('ok').onclick=async function(){
   var n=$('n').value.trim();
