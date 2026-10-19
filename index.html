@@ -122,7 +122,14 @@ function show(logged){
 $('go').onclick=async function(){
   $('lerr').textContent='';
   var r=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});
-  if(r.error)$('lerr').textContent='E-mail ou mot de passe incorrect.';
+  if(r.error){
+    var m=r.error.message||'',h=m;
+    if(/invalid login/i.test(m))h='E-mail ou mot de passe incorrect.';
+    else if(/not confirmed/i.test(m))h='Compte non confirmé : dans Supabase > Authentication > Users, confirme l\'utilisateur.';
+    else if(/api key|apikey|jwt/i.test(m))h='Clé Supabase invalide : vérifie SUPABASE_ANON_KEY dans index.html.';
+    else if(/fetch|network/i.test(m))h='Impossible de joindre Supabase : vérifie SUPABASE_URL dans index.html.';
+    $('lerr').textContent=h+' ('+m+')';
+  }
 };
 $('pw').onkeydown=function(e){if(e.key==='Enter')$('go').click()};
 $('out').onclick=function(){sb.auth.signOut()};
