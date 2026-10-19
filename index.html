@@ -56,7 +56,7 @@ dialog input,dialog select{width:100%}
 <script>
 window.CONFIG = {
   SUPABASE_URL: "https://gjbugrildbczgiyqaacq.supabase.co",
-  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqYnVncmlsZGJjemdpeXFhYWNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxMzUzMTksImV4cCI6MjEwNzcxMTMxOX0.xxPs_3oT9uJKDf7-3VEVGEunJouOvIap3ly80mJUfrE"
+  SUPABASE_ANON_KEY: "sb_publishable_Kr8GPuD90PuDtffKkz2p8w_zKeYIsxG"
 };
 </script>
 
@@ -66,6 +66,11 @@ window.CONFIG = {
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
   <input id="pw" type="password" placeholder="Mot de passe" autocomplete="current-password">
   <div class="err" id="lerr"></div>
+  <div class="sub" id="diag" style="word-break:break-all;margin-top:14px"></div>
+  <script>
+    (function(){var c=window.CONFIG,u=c.SUPABASE_URL,k=c.SUPABASE_ANON_KEY;
+    document.getElementById('diag').textContent='Diagnostic — URL : "'+u+'" · clé : '+k.length+' caractères, commence par "'+k.slice(0,6)+'"';})();
+  </script>
   <button class="p" id="go" style="width:100%">Se connecter</button>
 </div>
 
