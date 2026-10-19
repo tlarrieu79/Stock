@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stocks – Cellule secourisme</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="config.js"></script>
 <style>
 :root{--bg:#f4f5f7;--card:#fff;--tx:#1b1f24;--mut:#667085;--bd:#e2e5ea;--ac:#d92d20;--ok:#067647;--okb:#e7f6ee;--wa:#b54708;--wab:#fff4e0;--ko:#b42318;--kob:#fde8e6;--kos:#d92d20}
@@ -66,6 +68,9 @@ h2.sec{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(-
 .item.out .nm,.item.out .th{color:var(--ko)}
 .item .qn{font-size:1.35rem;font-weight:700;min-width:46px;text-align:right}
 .item.out .qn{color:var(--ko)}.item.low .qn{color:var(--wa)}
+.sum{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 16px;margin-top:16px}
+.sum b{font-size:1.3rem}
+.tv{font-weight:700;font-size:.95rem}
 .empty{text-align:center;color:var(--mut);padding:28px 0}
 
 /* Fenêtre article */
@@ -109,11 +114,12 @@ dialog label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 4px;fo
 
 <dialog id="dlg">
   <h2 id="dn"></h2><div class="cl" id="dc"></div>
-  <div class="qv" id="qv"><div class="qbig" id="qbig">0</div><div class="sl">en stock</div><button class="lnk" id="edq">Modifier la quantité</button></div>
+  <div class="qv" id="qv"><div class="qbig" id="qbig">0</div><div class="sl">en stock</div><div class="sl" id="qtot" style="font-weight:600;color:var(--tx)"></div><button class="lnk" id="edq">Modifier la quantité</button></div>
   <div class="st hide" id="stp"><button id="m">−</button><input id="qt" type="number" min="0" inputmode="numeric"><button id="pl">+</button></div>
   <details id="more"><summary>Modifier le nom, la catégorie, le seuil</summary>
     <label>Nom</label><input id="n">
     <label>Catégorie</label><select id="c"></select>
+    <label>Prix unitaire (€)</label><input id="pr" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
     <label>Seuil d’alerte (alerte si quantité ≤ seuil)</label><input id="th" type="number" min="0" inputmode="numeric">
   </details>
   <div class="act"><button id="del" class="lnk" style="color:var(--ko)">Supprimer</button><button id="cx">Annuler</button><button id="ok" class="p">Valider</button></div>
@@ -135,6 +141,9 @@ function cname(id){var c=cat(id);return c?c.name:'Sans catégorie'}
 function plural(n,w){return n+' '+w+(n>1?'s':'')}
 function fail(e){if(e){alert('Erreur : '+(e.message||e));return true}return false}
 function view(){var m=location.hash.match(/^#c=(.+)$/);return m?m[1]:null}
+function fm(n){n=Math.round((+n||0)*100)/100;var p=n.toFixed(2).split('.');return p[0].replace(/\B(?=(\d{3})+(?!\d))/g,' ')+','+p[1]}
+function val(i){return (+i.qty||0)*(+i.price||0)}
+function sumOf(l){return l.reduce(function(a,i){return a+val(i)},0)}
 function rank(i){return {out:0,low:1,ok:2}[st(i)]}
 
 /* ---------- Connexion ---------- */
@@ -196,17 +205,19 @@ function home(){
   var orphan=items.filter(function(i){return !i.category_id});
   if(orphan.length)h+=tile('none','Sans catégorie');
   h+='<div class="tile add" data-a="addc">+ Nouveau<br>dossier</div></div>';
+  h+='<div class="sum"><div>Valeur totale du stock<br><small style="color:var(--mut)">'+plural(items.length,'article')+' · '+plural(cats.length,'dossier')+'</small></div><b>'+fm(sumOf(items))+' €</b></div>';
+  h+='<button class="p" style="width:100%;margin-top:10px;padding:14px" data-a="pdf">📄 Exporter l’inventaire (PDF)</button>';
   return h;
 }
 function tile(id,name){
   var its=items.filter(function(i){return (id==='none'?!i.category_id:i.category_id===id)});
   var o=its.filter(function(i){return st(i)==='out'}).length,l=its.filter(function(i){return st(i)==='low'}).length;
-  return '<div class="tile'+(o?' bad':'')+'" data-cat="'+id+'"><span class="fi">📁</span><b>'+esc(name)+'</b><div><small>'+plural(its.length,'article')+'</small>'
+  return '<div class="tile'+(o?' bad':'')+'" data-cat="'+id+'"><span class="fi">📁</span><b>'+esc(name)+'</b><div><small>'+plural(its.length,'article')+'</small><div class="tv">'+fm(sumOf(its))+' €</div>'
     +(o||l?'<div class="bd" style="margin-top:6px">'+(o?'<span class="b o">'+o+' rupture'+(o>1?'s':'')+'</span>':'')+(l?'<span class="b w">'+l+' bas</span>':'')+'</div>':'')+'</div></div>';
 }
 function itemRow(i){
   var s=st(i);
-  return '<div class="item '+s+'" data-item="'+i.id+'"><div><div class="nm">'+esc(i.name)+'</div><div class="th">'+esc(cname(i.category_id))+' · seuil '+i.threshold+'</div></div><div class="qn">'+i.qty+'</div></div>';
+  return '<div class="item '+s+'" data-item="'+i.id+'"><div><div class="nm">'+esc(i.name)+'</div><div class="th">'+esc(cname(i.category_id))+' · seuil '+i.threshold+(+i.price?' · '+fm(i.price)+' €/u':'')+'</div></div><div style="text-align:right"><div class="qn">'+i.qty+'</div>'+(+i.price?'<div class="th">'+fm(val(i))+' €</div>':'')+'</div></div>';
 }
 function catView(id){
   var real=id!=='none',c=real?cat(id):null;
@@ -215,6 +226,7 @@ function catView(id){
   var h='<div class="back"><button class="lnk" data-a="back">‹ Dossiers</button></div>';
   h+='<div class="ctop"><h1>📂 '+esc(real?c.name:'Sans catégorie')+'</h1><button class="p" data-a="addi" data-id="'+(real?id:'')+'">+ Article</button></div>';
   h+=its.length?its.map(itemRow).join(''):'<div class="empty">Aucun article dans cette catégorie.</div>';
+  h+='<div class="sum"><div>Total du dossier</div><b>'+fm(sumOf(its))+' €</b></div>';
   if(real)h+='<div style="margin-top:18px;text-align:center"><button class="lnk" data-a="rc" data-id="'+id+'">Renommer la catégorie</button><button class="lnk" style="color:var(--ko)" data-a="dc" data-id="'+id+'">Supprimer la catégorie</button></div>';
   return h;
 }
@@ -228,6 +240,7 @@ $('app').addEventListener('click',async function(e){
   var a=t.dataset.a;
   if(a==='out'){sb.auth.signOut()}
   else if(a==='back'){location.hash=''}
+  else if(a==='pdf'){exportPdf()}
   else if(a==='addc'){
     var n=prompt('Nom de la nouvelle catégorie (ex. Pansements, Médicaments, Matériel)');
     if(n&&n.trim()){fail((await sb.from('categories').insert({name:n.trim()})).error);load()}
@@ -248,7 +261,7 @@ function openDlg(id,presel){
   $('n').value=it?it.name:'';
   $('c').value=it?(it.category_id||''):(presel||'');
   $('qt').value=it?it.qty:0;$('th').value=it?it.threshold:5;
-  $('qbig').textContent=it?it.qty:0;
+  $('pr').value=it&&+it.price?it.price:'';refreshQ();
   $('qv').classList.toggle('hide',!it);
   $('stp').classList.toggle('hide',!!it);
   $('del').style.display=it?'':'none';
@@ -258,14 +271,16 @@ function openDlg(id,presel){
 }
 function qv(){return Math.max(0,Math.floor(+$('qt').value||0))}
 $('edq').onclick=function(){$('stp').classList.remove('hide');$('edq').classList.add('hide')};
-$('m').onclick=function(){$('qt').value=Math.max(0,qv()-1);$('qbig').textContent=qv()};
-$('pl').onclick=function(){$('qt').value=qv()+1;$('qbig').textContent=qv()};
-$('qt').oninput=function(){$('qbig').textContent=qv()};
+function pv(){return Math.max(0,Math.round((+String($('pr').value).replace(',','.')||0)*100)/100)}
+function refreshQ(){$('qbig').textContent=qv();var p=pv();$('qtot').textContent=p?('× '+fm(p)+' € = '+fm(qv()*p)+' €'):''}
+$('m').onclick=function(){$('qt').value=Math.max(0,qv()-1);refreshQ()};
+$('pl').onclick=function(){$('qt').value=qv()+1;refreshQ()};
+$('qt').oninput=refreshQ;$('pr').oninput=refreshQ;
 $('cx').onclick=function(){$('dlg').close()};
 $('ok').onclick=async function(){
   var n=$('n').value.trim();
   if(!n){$('more').open=true;$('n').focus();return}
-  var row={name:n,category_id:$('c').value||null,qty:qv(),threshold:Math.max(0,Math.floor(+$('th').value||0)),updated_at:new Date().toISOString()};
+  var row={name:n,category_id:$('c').value||null,qty:qv(),price:pv(),threshold:Math.max(0,Math.floor(+$('th').value||0)),updated_at:new Date().toISOString()};
   $('ok').disabled=true;
   var r=editId?await sb.from('items').update(row).eq('id',editId):await sb.from('items').insert(row);
   $('ok').disabled=false;
@@ -274,6 +289,43 @@ $('ok').onclick=async function(){
 $('del').onclick=async function(){
   if(editId&&confirm('Supprimer cet article ?')){fail((await sb.from('items').delete().eq('id',editId)).error);$('dlg').close();load()}
 };
+
+
+function exportPdf(){
+  if(!window.jspdf){alert('Bibliothèque PDF non chargée. Vérifie ta connexion et réessaie.');return}
+  var doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+  var d=new Date(),ds=d.toLocaleDateString('fr-FR'),iso=d.toISOString().slice(0,10);
+  doc.setFontSize(18);doc.text('Inventaire - Cellule secourisme',40,50);
+  doc.setFontSize(10);doc.setTextColor(100);doc.text('Édité le '+ds+' · '+items.length+' articles',40,68);doc.setTextColor(0);
+  var groups=cats.map(function(c){return{name:c.name,its:items.filter(function(i){return i.category_id===c.id})}});
+  var orph=items.filter(function(i){return !i.category_id});
+  if(orph.length)groups.push({name:'Sans catégorie',its:orph});
+  var y=84;
+  groups.forEach(function(g){
+    if(!g.its.length)return;
+    var sorted=g.its.slice().sort(function(a,b){return a.name.localeCompare(b.name)});
+    var qsum=sorted.reduce(function(a,i){return a+i.qty},0);
+    doc.autoTable({startY:y,theme:'grid',
+      head:[[{content:g.name,colSpan:4,styles:{halign:'left',fillColor:[217,45,32],textColor:255,fontSize:11}}],['Article','Quantité','Prix unitaire (EUR)','Total (EUR)']],
+      body:sorted.map(function(i){return [i.name,String(i.qty),fm(i.price),fm(val(i))]}),
+      foot:[['Total '+g.name,String(qsum),'',fm(sumOf(sorted))]],
+      headStyles:{fillColor:[60,64,72]},footStyles:{fillColor:[235,237,240],textColor:0,fontStyle:'bold'},
+      columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'}},
+      styles:{fontSize:9,cellPadding:4},margin:{left:40,right:40},showFoot:'lastPage',
+      didParseCell:function(h){if(h.section==='body'&&h.column.index===1&&h.cell.raw==='0'){h.cell.styles.textColor=[180,35,24];h.cell.styles.fontStyle='bold'}}});
+    y=doc.lastAutoTable.finalY+18;
+  });
+  doc.autoTable({startY:y,theme:'grid',
+    head:[[{content:'Récapitulatif par catégorie',colSpan:4,styles:{halign:'left',fillColor:[217,45,32],textColor:255,fontSize:11}}],['Catégorie','Articles','Quantité totale','Valeur (EUR)']],
+    body:groups.map(function(g){return [g.name,String(g.its.length),String(g.its.reduce(function(a,i){return a+i.qty},0)),fm(sumOf(g.its))]}),
+    foot:[['TOTAL GÉNÉRAL',String(items.length),String(items.reduce(function(a,i){return a+i.qty},0)),fm(sumOf(items))]],
+    headStyles:{fillColor:[60,64,72]},footStyles:{fillColor:[217,45,32],textColor:255,fontStyle:'bold'},
+    columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'}},
+    styles:{fontSize:10,cellPadding:5},margin:{left:40,right:40},showFoot:'lastPage'});
+  var n=doc.getNumberOfPages();
+  for(var k=1;k<=n;k++){doc.setPage(k);doc.setFontSize(8);doc.setTextColor(120);doc.text('Page '+k+' / '+n,doc.internal.pageSize.getWidth()-40,doc.internal.pageSize.getHeight()-20,{align:'right'})}
+  doc.save('inventaire-secourisme-'+iso+'.pdf');
+}
 
 boot();
 })();
