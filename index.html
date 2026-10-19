@@ -58,6 +58,8 @@ h2.sec{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(-
 .b.o{background:var(--kos);color:#fff}.b.w{background:var(--wab);color:var(--wa)}
 .tile.add{border-style:dashed;align-items:center;justify-content:center;color:var(--mut);font-weight:600;text-align:center}
 .sb{margin-top:16px}
+.sr{display:flex;gap:8px;margin-top:16px}
+.sr input{flex:1}.sr button{white-space:nowrap}
 .back{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .ctop{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px}
 .ctop h1{margin:0;font-size:1.3rem;word-break:break-word}
@@ -191,7 +193,7 @@ function home(){
   var h='<div class="head"><h1>🩹 Stocks secourisme</h1><button class="lnk" data-a="out">Déconnexion</button></div>';
   if(search){
     var r=items.filter(function(i){return (i.name+' '+cname(i.category_id)).toLowerCase().indexOf(search.toLowerCase())>-1}).sort(function(a,b){return rank(a)-rank(b)});
-    h+='<input class="sb" id="s" type="search" placeholder="Rechercher un article" value="'+esc(search)+'" style="margin-top:0">';
+    h+='<div class="sr" style="margin-top:0"><input id="s" type="search" placeholder="Rechercher un article" value="'+esc(search)+'"><button class="p" data-a="addi" data-id="">+ Article</button></div>';
     h+='<h2 class="sec">Résultats ('+r.length+')</h2>'+(r.length?r.map(itemRow).join(''):'<div class="empty">Aucun article trouvé.</div>');
     return h;
   }
@@ -199,7 +201,7 @@ function home(){
   else if(outs.length)h+='<div class="rup"><h2>🔴 En rupture ('+outs.length+')</h2>'+outs.map(rrow).join('')+'</div>';
   else h+='<div class="good">✅ Aucun article en rupture</div>';
   if(lows.length)h+='<div class="warn"><h2>🟠 Stock bas ('+lows.length+')</h2>'+lows.map(rrow).join('')+'</div>';
-  h+='<input class="sb" id="s" type="search" placeholder="Rechercher un article">';
+  h+='<div class="sr"><input id="s" type="search" placeholder="Rechercher un article"><button class="p" data-a="addi" data-id="">+ Article</button></div>';
   h+='<h2 class="sec">Dossiers</h2><div class="grid">';
   cats.forEach(function(c){h+=tile(c.id,c.name)});
   var orphan=items.filter(function(i){return !i.category_id});
